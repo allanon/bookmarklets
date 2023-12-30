@@ -2,7 +2,7 @@
 
 let tts_iterator = null;
 let utterance = null;
-function speak(cb) {
+let speak = cb => {
   let text = tts_iterator.next();
   let elems = tts_iterator.elems;
   let $curr = ttsQuery('.speaking'), cy = ($curr.offset() || {}).top, ch = $curr.height();
@@ -16,7 +16,7 @@ function speak(cb) {
   }
   let u = (utterance = new SpeechSynthesisUtterance());
   if (text) {
-    u.text = text;
+    u.text = pronounce(text);
     u.onend = function (event) {
       // Cancel+speak will cause the canceled utterance's onend to trigger. Ensure that doesn't cause us to attempt to speak the next line.
       if (utterance != u) return;
@@ -28,25 +28,94 @@ function speak(cb) {
   }
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
-}
+};
+
+let translations = [];
+let pronunciations = [];
+let translate = str => applyRegexes(str, translations);
+let pronounce = str => applyRegexes(str, pronunciations);
+
+let applyRegexes = (str, regexes) => {
+  return regexes.reduce((str,regex) => {
+    var pat = regex.source;
+    var flags = 'g';
+
+    // Quote the pattern.
+    if (regex.match_type == 'glob' || regex.match_type == 'exact') {
+      pat = pat.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
+    }
+
+    if (regex.match_type == 'glob') {
+      pat = pat.replace(/\\*/g, '.*');
+      pat = pat.replace(/\\?/g, '.');
+    }
+
+    if (regex.words == 'whole') {
+      pat = '\\b' + pat + '\\b';
+    }
+
+    if (regex.case_sensitivity == 'insensitive') {
+      flags = flags + 'i';
+    }
+    return str.replace(new RegExp(pat, flags), regex.target);
+  }, str);
+};
+window.applyRegexes = applyRegexes;
+window.translate = translate;
+window.pronounce = pronounce;
+
+let replaceBody = html => {
+  let elems = new DOMParser().parseFromString(translate(html), 'text/html');
+  let body = elems.getElementsByTagName('body')[0];
+  for (elem of [...document.body.children]) { elem.remove(); }
+  for (elem of [...body.children]) { document.body.appendChild(elem); }
+};
+
 let init = cb => {
   let loaded = 0;
   function onload() {
     if (++loaded < 2) return;
     window.ttsQuery = window.jQuery;
     $.noConflict(true);
-    ttsQuery(document.body).on('click', 'p,div', function (event) {
-      if (event['tts']) return;
-      event.tts = 1;
-      if (ttsQuery(event.target).closest('.speaking').length) {
-        tts_iterator.stop();
-        utterance = null;
-        speechSynthesis.cancel();
-        ttsQuery('.speaking').removeClass('speaking');
-        return;
-      }
-      tts_iterator = new TtsDomIterator($('.chapter-inner')[0], event.target);
-      speak(_ => loadNextPage(_ => speakPage()));
+    let listen = _ => {
+      replaceBody(translate($('body').html()));
+      ttsQuery(document.body).on('click', 'p,div', function (event) {
+        if (event['tts']) return;
+        event.tts = 1;
+        if (ttsQuery(event.target).closest('.speaking').length) {
+          tts_iterator.stop();
+          utterance = null;
+          speechSynthesis.cancel();
+          ttsQuery('.speaking').removeClass('speaking');
+          return;
+        }
+        tts_iterator = new TtsDomIterator($('.chapter-inner')[0], event.target);
+        speak(_ => loadNextPage(_ => speakPage()));
+      });
+    };
+
+    // Attempt to load translations and pronunciations. If the request fails, ignore it.
+    $.ajax({
+      url: 'https:/'+'/www.elfhame.net/books/translations.pl?as_json=1',
+      xhrFields: { withCredentials: true },
+      timeout: 2000,
+      success: json => {
+        // If the user isn't logged in, `json` will come back as an empty string.
+        if (json && json.translations) translations = json.translations;
+        if (json && json.pronunciations) pronunciations = json.pronunciations.map(p => {
+          // Target can be a javascript function, for complex behavior.
+          if (p.target.match(/^function\(.*\{.*\}$/)) {
+            try {
+              p.target = eval('f = '+p.target);
+            } catch(e) {
+              console.log(e.message);
+            }
+          }
+          return p;
+        });
+        listen();
+      },
+      error: listen,
     });
   }
   let s = document.createElement('style');
@@ -62,17 +131,17 @@ let init = cb => {
   s.onload = onload;
   document.body.appendChild(s);
 };
+
 let loadNextPage = cb => {
   $.get($('a:contains(Next Chapter)').attr('href'), html => {
-    let elems = new DOMParser().parseFromString(html, 'text/html');
-    let body = elems.getElementsByTagName('body')[0];
-    for (elem of [...document.body.children]) { elem.remove(); }
-    for (elem of [...body.children]) { document.body.appendChild(elem); }
+    replaceBody(translate(html));
     if (cb) cb();
   });
 };
+
 let speakPage = cb => {
   tts_iterator = new TtsDomIterator($('.chapter-inner')[0], $('.chapter-inner').children()[0]);
   speak(_ => loadNextPage(_ => speakPage()));
 };
+
 init();

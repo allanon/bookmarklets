@@ -9,7 +9,7 @@ let stripComments = js => js.replaceAll(/\/\/[^;\n]*\n/g, '').replaceAll(/\/\*.*
 let escapeJs = js => encodeURIComponent(js).replace(/'/g, '%27');
 $(document).ready(_ => {
   [...$('a[src]')].forEach(a => {
-    $.get($(a).attr('src'), js => $(a).attr('href', 'javascript:void((function(){'+escapeJs(squashWhitespace(stripComments(js)))+'})())'), 'text');
+    $.get($(a).attr('src')+'?_='+(new Date().getTime()), js => $(a).attr('href', 'javascript:void((function(){'+escapeJs(squashWhitespace(stripComments(js)))+'})())'), 'text');
   });
 });
 </script>
