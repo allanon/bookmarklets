@@ -2,14 +2,23 @@
 <html>
 <head>
 <title>Bookmarklets</title>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 <script>
 let squashWhitespace = js => js.replaceAll(/\s+/g, ' ').replaceAll(/^ | $/g, '');
 let stripComments = js => js.replaceAll(/\/\/[^;\n]*\n/g, '').replaceAll(/\/\*.*?\*\//g, '');
 let escapeJs = js => encodeURIComponent(js).replace(/'/g, '%27');
 $(document).ready(_ => {
   [...$('a[src]')].forEach(a => {
-    $.get($(a).attr('src')+'?_='+(new Date().getTime()), js => $(a).attr('href', 'javascript:void((function(){'+escapeJs(squashWhitespace(stripComments(js)))+'})())'), 'text');
+    $.get($(a).attr('src')+'?_='+(new Date().getTime()), js => {
+      let info = Object.fromEntries([...js.matchAll(/(?:^|\n)\/\/\s*(\w+):\s*([^\n]+)/g)].map(([_,key,val]) => [key.toLowerCase(),val]));
+      $(a).attr('href', 'javascript:void((function(){'+escapeJs(squashWhitespace(stripComments(js)))+'})())');
+      if (info.name) {
+        $(a).text(info.name);
+        if (info.description) {
+          $(a).after(' - ' + info.description);
+        }
+      }
+    }, 'text');
   });
 });
 </script>
@@ -168,8 +177,25 @@ RoyalRoad Scroll</a></p>
 <p><a href="javascript:void((function(){ [...document.querySelectorAll('*')].flatMap(x =&gt; [x,...(x.shadowRoot ? [...x.shadowRoot.querySelectorAll('*')] : [])]).filter(x =&gt; window.getComputedStyle(x).position == 'fixed' ).filter(x =&gt; x != document.documentElement &amp;&amp; x != document.body ).forEach(x =&gt; x.remove() ); [document.documentElement, document.body].forEach(x =&gt; { x.style.setProperty('overflow','visible','important'); x.style.setProperty('position','static','important'); }); $('.paywall').attr('style', '').removeClass('paywall paywallActive'); $('.paywall-selector').remove(); })())
 ">Remove Modals</a> - Remove modal dialogs (useful for paywalls, email walls, "would you like our newsletter", adblocker walls, etc).</p>
 
-<p><a src="bookmarklets/elvenar.js">Elvenar Auto-Collect (v2)</a> - Auto-collect resources.</p>
+<p><a src="bookmarklets/elvenar.js"></a></p>
 
-<p><a src="bookmarklets/rr_tts.js">RoyalRoad Text-to-Speech</a>: Add TTS support to RoyalRoad. Click/touch the text that you want to be read. Click on the text currently being read to stop reading. Automatically loads the next chapter and continues reading.</p>
+<p><a src="bookmarklets/rr_tts.js"></a></p>
+
+<p><a href="javascript:void(
+(function(){
+  setInterval(_ => {
+    document.getElementsByTagName('body')[0].dispatchEvent(new KeyboardEvent('keydown', { keyCode: 39, key: 'ArrowRight', code: 'ArrowRight', bubbles: true }));
+  }, 120 * 1000);
+})()
+);">Auto-Advance</a></p>
+
+<p><a href="javascript:void(
+(function(){
+  alert('Total Season Points: '+[...document.getElementsByClassName('table-cell--points')].map(x => x.innerText.replaceAll(',','')).filter(x => x.match(/^\d+$/)).map(x => parseInt(x)).reduce((a,b) => a+b, 0));
+})()
+);">NitroType: Sum Season Points</a></p>
+
+<p><a src="bookmarklets/starbucksforlife.js"></a></p>
+
 </body>
 </html>

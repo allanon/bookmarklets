@@ -1,4 +1,5 @@
-// RoyalRoad-specific TTS. This will read the current page, then automatically load the next page and keep reading.
+// Name: RoyalRoad Text-to-Speech
+// Description: Add TTS support to RoyalRoad. Click/touch the text that you want to be read. Click on the text currently being read to stop reading. Automatically loads the next chapter and continues reading.
 
 let tts_iterator = null;
 let utterance = null;

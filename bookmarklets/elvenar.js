@@ -1,5 +1,8 @@
+// Name: Elvenar Auto-Collect (v2)
+// Description: Auto-collect resources.
+
 let Replay = function() {
-  this.preset = 0;
+  this.speed = 1;
   this.events = [];
   this._capturing = false;
   this._replaying = false;
@@ -82,7 +85,7 @@ let Replay = function() {
     this._replaying = true;
     if (this.events[0].time) {
       let t0 = this.events[0].time;
-      this.events.forEach(event => (event.time = event.time - t0));
+      this.events.forEach(event => (event.time = (event.time - t0) / this.speed));
     }
     let t0 = new Date().getTime();
     let idx = 0;
@@ -129,6 +132,7 @@ let Replay = function() {
 };
 let Elvenar = function() {
   this.debug = 1;
+  this.preset = 0;
   let canvas = document.getElementsByTagName('canvas')[0];
   if (!canvas) {
     this.debug = 2;
